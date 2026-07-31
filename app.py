@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import time
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from seleniumbase import Driver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -142,15 +141,8 @@ if st.button("Start") and uploaded_file and url:
     if "Registration No." not in df.columns:
         st.error("Excel file me 'Registration No.' column nahi mila!")
     else:
-        # ✨ Cloud Server (Streamlit Cloud) ke liye Headless Chrome Setup ✨
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")              # Server par bina window ke chalanay ke liye
-        chrome_options.add_argument("--no-sandbox")            # Linux server security bypass
-        chrome_options.add_argument("--disable-dev-shm-usage")  # Memory limit error se bachne ke liye
-        chrome_options.add_argument("--disable-gpu")
-
-        driver = webdriver.Chrome(options=chrome_options)
-        
+                      # Server par bina window ke chalanay ke liye
+        driver = Driver(uc=True, headless=True)
         total_students = len(df)
         
         # ✨ NAYA LOGIC: Progress Bar Jisme (1/5) format me text aayega
