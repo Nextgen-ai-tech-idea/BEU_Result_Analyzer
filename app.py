@@ -178,14 +178,14 @@ if st.button("Start") and uploaded_file and url:
                     input_box = driver.find_element(By.XPATH, "//input[@placeholder='Enter Reg. No.']")
                     input_box.clear()
                     input_box.send_keys(reg_no)
-                    time.sleep(1)
+                    time.sleep(2)
                     
                     submit_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Show Result')]")
                     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
                     time.sleep(1)
                     driver.execute_script("arguments[0].click();", submit_btn)
                     
-                    time.sleep(6) 
+                    time.sleep(10) 
                     
                     if len(driver.window_handles) > 1:
                         driver.switch_to.window(driver.window_handles[-1])
