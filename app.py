@@ -10,28 +10,28 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
+from selenium_stealth import stealth
 
 # ==========================================
-# ✨ PAGE CONFIG
+# ✨ PAGE CONFIG & CSS
 # ==========================================
 st.set_page_config(page_title="BEU Result Analyzer", page_icon="🎓")
-
-# ==========================================
-# ✨ CUSTOM CSS 
-# ==========================================
 st.markdown("""
 <style>
-.stApp { background-color: #f8fafc; }
-h1 { color: #1e3a8a !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin-top: 0px !important; }
-.stTextInput label p, .stFileUploader label p { font-size: 20px !important; font-weight: 800 !important; color: #1e3a8a !important; }
-.stTextInput > div > div > input { border: 2px solid #1e3a8a !important; border-radius: 8px !important; }
-.stFileUploader > div > div { border: 2px dashed #1e3a8a !important; border-radius: 8px !important; background-color: #ffffff !important; }
-div.stButton > button:first-child { background-color: #2563eb !important; color: white !important; font-weight: 600 !important; border-radius: 8px !important; padding: 10px 24px !important; font-size: 18px !important; width: 100%; }
-div.stDownloadButton > button { background: linear-gradient(135deg, #ff007f, #ff5e62) !important; color: white !important; font-weight: 800 !important; border-radius: 8px !important; padding: 12px 28px !important; font-size: 18px !important; }
+.stApp { background-color: #f8fafc; } 
+h1 { color: #1e3a8a !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin-top: 0px !important; } 
+.stTextInput label p, .stFileUploader label p { font-size: 20px !important; font-weight: 800 !important; color: #1e3a8a !important; } 
+.stTextInput > div > div > input { border: 2px solid #1e3a8a !important; border-radius: 8px !important; } 
+.stFileUploader > div > div { border: 2px dashed #1e3a8a !important; border-radius: 8px !important; background-color: #ffffff !important; } 
+div.stButton > button:first-child { background-color: #2563eb !important; color: white !important; font-weight: 600 !important; border-radius: 8px !important; padding: 10px 24px !important; font-size: 18px !important; width: 100%; } 
+div.stDownloadButton > button { background: linear-gradient(135deg, #ff007f, #ff5e62) !important; color: white !important; font-weight: 800 !important; border-radius: 8px !important; padding: 12px 28px !important; font-size: 18px !important; } 
 .stFileUploader small { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
+# ==========================================
+# 🛡️ ANTI-BOT DRIVER INITIALIZATION
+# ==========================================
 def get_driver():
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
@@ -39,20 +39,28 @@ def get_driver():
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920,1080")
+    
+    # Bot detection hatane ke flags
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
     try:
         service = Service("/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=chrome_options)
     except Exception as e:
-        st.warning(f"System Chromedriver failed, trying WebdriverManager... Error: {e}")
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         
-    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    # Stealth Mode Apply Karna taaki Cloudflare ko hum Real Human lagein
+    stealth(driver,
+        languages=["en-US", "en"],
+        vendor="Google Inc.",
+        platform="Win32",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL Engine",
+        fix_hairline=True,
+    )
     return driver
 
 # ==========================================
@@ -81,26 +89,22 @@ if st.button("Start") and uploaded_file and url:
         st.error("Excel file me 'Registration No.' column nahi mila!")
     else:
         total_students = len(df)
-        progress_bar = st.progress(0, text="🛡️ Opening Browser & Waiting for Cloudflare...")
+        progress_bar = st.progress(0, text="🛡️ Bypassing Cloudflare... Please wait 10-15 seconds.")
         
         try:
             driver = get_driver()
-            st.info("✅ Browser started successfully!")
             
+            # 1. URL Open karein
             driver.get(url)
-            time.sleep(5) # Thoda wait karte hain page load hone ka
             
-            # 📸 DEBUG: Yahan browser ki screen print karke dikhayenge
-            st.markdown("### 📸 Live Screenshot (What the server sees):")
+            # 2. URL load hone ke baad Cloudflare ko verify karne ke liye 10 second ka lamba wait
+            time.sleep(10) 
+            
+            # 📸 DEBUG Screenshot check karne ke liye ki kya is baar Cloudflare pass hua
+            st.markdown("### 📸 Live Screenshot (After Stealth & Wait):")
             st.image(driver.get_screenshot_as_png(), use_container_width=True)
             
-            try:
-                WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, "//input")))
-                progress_bar.progress(0, text=f"✅ Verification Passed! Starting... (0/{total_students})")
-            except Exception as e:
-                st.error("⚠️ Timeout waiting for input box! Cloudflare blocked us or page is empty.")
-                st.write(f"**Error Details:** {e}")
-
+            # 3. Data Extract Process
             for index, row in df.iterrows():
                 reg_no = str(row['Registration No.']).strip()
                 if reg_no.endswith('.0'): reg_no = reg_no[:-2]
@@ -117,9 +121,9 @@ if st.button("Start") and uploaded_file and url:
 
                         if input_box:
                             input_box.clear()
-                            time.sleep(0.5)
+                            time.sleep(1) # Thoda slow type karenge bot jaisa na lage
                             input_box.send_keys(reg_no)
-                            time.sleep(0.5)
+                            time.sleep(1)
 
                             buttons = driver.find_elements(By.TAG_NAME, "button")
                             btn = None
@@ -131,7 +135,7 @@ if st.button("Start") and uploaded_file and url:
 
                             if btn:
                                 driver.execute_script("arguments[0].click();", btn)
-                                time.sleep(4) 
+                                time.sleep(5) # Result render hone ka wait
 
                             soup = BeautifulSoup(driver.page_source, 'html.parser')
                             data_found = False
@@ -158,7 +162,7 @@ if st.button("Start") and uploaded_file and url:
                                     if data_found: break
 
                     except Exception as e:
-                        st.error(f"Error on Reg No {reg_no}: {e}") # Ab error dikhega
+                        st.error(f"Error on Reg No {reg_no}: {e}")
 
                 progress_bar.progress((index + 1) / total_students, text=f"⏳ Extracting... ({index + 1}/{total_students})")
 
