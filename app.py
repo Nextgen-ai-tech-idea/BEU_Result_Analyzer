@@ -84,6 +84,7 @@ div.stDownloadButton > button {
 """, unsafe_allow_html=True)
 
 # Helper function to initialize Driver (Local + Cloud Supported)
+# Helper function to initialize Driver (Anti-Bot Bypass ke sath)
 def get_driver():
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
@@ -91,17 +92,22 @@ def get_driver():
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    
+    # 🛡️ NAYA: Cloudflare Anti-Bot Bypass Options
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
     try:
-        # Streamlit Cloud Environment
         service = Service("/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=chrome_options)
     except:
-        # Local Environment
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         
+    # Selenium ko detect hone se bachana
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
 
 # ==========================================
@@ -135,11 +141,23 @@ if st.button("Start") and uploaded_file and url:
         st.error("Excel file me 'Registration No.' column nahi mila!")
     else:
         total_students = len(df)
-        progress_bar = st.progress(0, text=f"⏳ Starting Browser... (0/{total_students})")
+        progress_bar = st.progress(0, text="🛡️ Opening Browser & Bypassing Cloudflare... (Please Wait)")
         
         driver = get_driver()
 
         try:
+            # 🚨 URL ko sirf EK BAAR load karna hai loop se pehle
+            driver.get(url)
+            
+            # Wait until Cloudflare verification passes and input box is visible (Max 20 seconds)
+            try:
+                WebDriverWait(driver, 20).until(
+                    EC.presence_of_element_located((By.XPATH, "//input"))
+                )
+                progress_bar.progress(0, text=f"✅ Verification Passed! Starting extraction... (0/{total_students})")
+            except:
+                st.error("⚠️ Cloud Verification time-out ho gaya. Ho sakta hai server IP block ho. Kripya URL check karein.")
+
             for index, row in df.iterrows():
                 reg_no = str(row['Registration No.']).strip()
                 if reg_no.endswith('.0'):
@@ -147,35 +165,37 @@ if st.button("Start") and uploaded_file and url:
 
                 if reg_no != 'nan' and reg_no != '':
                     try:
-                        driver.get(url)
-                        time.sleep(2)  # Page loading time
-
-                        # Find Input Field & Fill Reg No
+                        # Find Input Field dynamically
+                        inputs = driver.find_elements(By.TAG_NAME, "input")
                         input_box = None
-                        try:
-                            input_box = driver.find_element(By.XPATH, "//input[@type='text' or @type='number' or contains(@placeholder, 'Reg') or contains(@id, 'reg') or contains(@name, 'reg')]")
-                        except:
-                            inputs = driver.find_elements(By.TAG_NAME, "input")
-                            if inputs:
-                                input_box = inputs[0]
+                        for inp in inputs:
+                            if inp.get_attribute('type') in ['text', 'number'] or 'reg' in (inp.get_attribute('placeholder') or '').lower():
+                                input_box = inp
+                                break
+                                
+                        if not input_box and inputs:
+                            input_box = inputs[0]
 
                         if input_box:
                             input_box.clear()
+                            time.sleep(0.5)
                             input_box.send_keys(reg_no)
                             time.sleep(0.5)
 
-                            # Click Show Result / Submit Button
+                            # Find & Click Submit Button
+                            buttons = driver.find_elements(By.TAG_NAME, "button")
                             btn = None
-                            try:
-                                btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Show') or contains(text(), 'Result') or contains(text(), 'Submit') or contains(text(), 'Search')]")
-                            except:
-                                buttons = driver.find_elements(By.TAG_NAME, "button")
-                                if buttons:
-                                    btn = buttons[0]
+                            for b in buttons:
+                                if any(word in b.text.lower() for word in ['show', 'result', 'submit', 'search']):
+                                    btn = b
+                                    break
+                            
+                            if not btn and buttons:
+                                btn = buttons[0]
 
                             if btn:
                                 driver.execute_script("arguments[0].click();", btn)
-                                time.sleep(3)  # Wait for Result to render
+                                time.sleep(4)  # Wait for React to fetch and render the new table
 
                             # Parse HTML with BeautifulSoup
                             soup = BeautifulSoup(driver.page_source, 'html.parser')
@@ -209,7 +229,7 @@ if st.button("Start") and uploaded_file and url:
                                         break
 
                     except Exception as e:
-                        pass
+                        pass # Ignore row error and continue
 
                 progress_bar.progress((index + 1) / total_students, text=f"⏳ Extracting Data... ({index + 1}/{total_students})")
 
