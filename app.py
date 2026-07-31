@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 import time
-from seleniumbase import Driver
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -142,7 +144,15 @@ if st.button("Start") and uploaded_file and url:
         st.error("Excel file me 'Registration No.' column nahi mila!")
     else:
                       # Server par bina window ke chalanay ke liye
-        driver = Driver(headless=True, chromium=True)
+        chrome_options = Options()
+        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+        service = Service("/usr/bin/chromedriver")
+        driver = webdriver.Chrome(service=service, options=chrome_options)
         total_students = len(df)
         
         # ✨ NAYA LOGIC: Progress Bar Jisme (1/5) format me text aayega
