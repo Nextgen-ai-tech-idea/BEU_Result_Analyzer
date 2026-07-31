@@ -124,67 +124,51 @@ if st.button("Start") and uploaded_file and url:
         progress_text = f"⏳ Processing started... (0/{total_students})"
         progress_bar = st.progress(0, text=progress_text)
         
+        # URL se parameters parse/extract karne ka logic
         for index, row in df.iterrows():
             reg_no = str(row['Registration No.']).strip()
 
             if reg_no != 'nan' and reg_no != '':
                 try:
-                    session = requests.Session()
+                    # BEU Result Search Backend API Call
+                    api_url = "https://beu-bih.ac.in/api/result-search" 
+                    
+                    payload = {
+                        "regNo": reg_no,
+                        "semester": 7,
+                        "exam_id": "250107"
+                    }
+                    
                     headers = {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Content-Type': 'application/json'
                     }
 
-                    # Pehle POST request try karein
-                    response = session.post(url, data={'regNo': reg_no}, headers=headers, timeout=15)
-                    soup = BeautifulSoup(response.content, 'html.parser')
-
-                    # Agar POST se table na mile, toh GET request try karein
-                    if not soup.find_all('table'):
-                        # URL ke aage query parameter jod kar GET karna
-                        separator = '&' if '?' in url else '?'
-                        full_url = f"{url}{separator}regNo={reg_no}"
-                        response = session.get(full_url, headers=headers, timeout=15)
-                        soup = BeautifulSoup(response.content, 'html.parser')
-
-                    data_found = False
-
-                    for table in soup.find_all('table'):
-                        table_text = table.get_text()
-                        # Keywords matching
-                        if 'SGPA' in table_text or 'CGPA' in table_text:
-                            rows = table.find_all('tr')
-                            for r in rows:
-                                cols = r.find_all(['td', 'th'])
-                                cols_text = [c.get_text(strip=True) for c in cols]
-
-                                if len(cols_text) > 1:
-                                    # CGPA Check
-                                    if 'CGPA' in cols_text[0].upper() or 'CUR. CGPA' in cols_text[0].upper():
-                                        df.at[index, 'Cur. CGPA'] = cols_text[-1]
-                                        data_found = True
-
-                                    # SGPA Check
-                                    if 'SGPA' in cols_text[0].upper():
-                                        vals = cols_text[1:]
-                                        # CGPA agar last value ho
-                                        if 'CGPA' in table_text:
-                                            df.at[index, 'Cur. CGPA'] = vals[-1]
-                                            sgpa_vals = vals[:-1]
-                                        else:
-                                            sgpa_vals = vals
-
-                                        for i, val in enumerate(sgpa_vals):
-                                            col_name = f'Semester {i+1} SGPA'
-                                            if col_name in df.columns:
-                                                df.at[index, col_name] = val
-                                        
-                                        data_found = True
-                                        break
-                            if data_found:
-                                break
+                    response = requests.post(api_url, json=payload, headers=headers, timeout=10)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        
+                        # API JSON Response Structure Parsing
+                        if 'data' in data or 'result' in data:
+                            res_data = data.get('data', data.get('result', {}))
+                            
+                            # CGPA Set karna
+                            if 'cgpa' in res_data:
+                                df.at[index, 'Cur. CGPA'] = res_data['cgpa']
+                            elif 'cur_cgpa' in res_data:
+                                df.at[index, 'Cur. CGPA'] = res_data['cur_cgpa']
+                                
+                            # SGPA Semesters Set karna
+                            if 'sgpa_list' in res_data and isinstance(res_data['sgpa_list'], list):
+                                for i, sgpa_val in enumerate(res_data['sgpa_list']):
+                                    col_name = f'Semester {i+1} SGPA'
+                                    if col_name in df.columns:
+                                        df.at[index, col_name] = sgpa_val
 
                 except Exception as e:
-                    st.warning(f"Registration No {reg_no} ke liye data extract nahi ho paya: {e}")
+                    # Error dekhne ke liye temporary warning log
+                    st.warning(f"Reg No {reg_no} Error: {e}")
 
             # Progress Bar Update
             progress_bar.progress((index + 1) / total_students, text=f"⏳ Extracting Data... ({index + 1}/{total_students})")
