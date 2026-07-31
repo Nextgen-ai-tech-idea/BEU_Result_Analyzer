@@ -52,7 +52,7 @@ def get_driver():
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         
-    # Stealth Mode Apply Karna taaki Cloudflare ko hum Real Human lagein
+    # Stealth Mode Apply Karna
     stealth(driver,
         languages=["en-US", "en"],
         vendor="Google Inc.",
@@ -89,22 +89,28 @@ if st.button("Start") and uploaded_file and url:
         st.error("Excel file me 'Registration No.' column nahi mila!")
     else:
         total_students = len(df)
-        progress_bar = st.progress(0, text="🛡️ Bypassing Cloudflare... Please wait 10-15 seconds.")
+        progress_bar = st.progress(0, text="🛡️ Opening Browser...")
         
         try:
             driver = get_driver()
-            
-            # 1. URL Open karein
             driver.get(url)
             
-            # 2. URL load hone ke baad Cloudflare ko verify karne ke liye 10 second ka lamba wait
-            time.sleep(10) 
+            st.markdown("### 📸 Live Browser View (Updating for 30 Seconds...)")
+            live_screen = st.empty() # Placeholder for live images
             
-            # 📸 DEBUG Screenshot check karne ke liye ki kya is baar Cloudflare pass hua
-            st.markdown("### 📸 Live Screenshot (After Stealth & Wait):")
-            st.image(driver.get_screenshot_as_png(), use_container_width=True)
+            # ✨ NAYA: 30 Second ka Wait aur Live Slideshow
+            for i in range(30):
+                progress_bar.progress((i + 1) / 30, text=f"⏳ Waiting for Cloudflare Verification... ({i + 1} / 30 sec)")
+                try:
+                    # Har second naya screenshot lagayega
+                    live_screen.image(driver.get_screenshot_as_png(), use_container_width=True)
+                except:
+                    pass
+                time.sleep(1) 
             
-            # 3. Data Extract Process
+            st.success("✅ Wait Complete! Now attempting to extract data...")
+            
+            # Data Extract Process
             for index, row in df.iterrows():
                 reg_no = str(row['Registration No.']).strip()
                 if reg_no.endswith('.0'): reg_no = reg_no[:-2]
@@ -121,9 +127,9 @@ if st.button("Start") and uploaded_file and url:
 
                         if input_box:
                             input_box.clear()
-                            time.sleep(1) # Thoda slow type karenge bot jaisa na lage
+                            time.sleep(0.5) 
                             input_box.send_keys(reg_no)
-                            time.sleep(1)
+                            time.sleep(0.5)
 
                             buttons = driver.find_elements(By.TAG_NAME, "button")
                             btn = None
@@ -136,6 +142,9 @@ if st.button("Start") and uploaded_file and url:
                             if btn:
                                 driver.execute_script("arguments[0].click();", btn)
                                 time.sleep(5) # Result render hone ka wait
+                                
+                                # Taki hum dekh sake ki data aaya ya nahi
+                                live_screen.image(driver.get_screenshot_as_png(), use_container_width=True, caption=f"Result for {reg_no}")
 
                             soup = BeautifulSoup(driver.page_source, 'html.parser')
                             data_found = False
