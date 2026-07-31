@@ -142,7 +142,7 @@ if st.button("Start") and uploaded_file and url:
         st.error("Excel file me 'Registration No.' column nahi mila!")
     else:
                       # Server par bina window ke chalanay ke liye
-        driver = Driver(uc=True, headless=True)
+        driver = Driver(headless=True, chromium=True)
         total_students = len(df)
         
         # ✨ NAYA LOGIC: Progress Bar Jisme (1/5) format me text aayega
