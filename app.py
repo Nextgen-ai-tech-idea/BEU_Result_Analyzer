@@ -129,50 +129,62 @@ if st.button("Start") and uploaded_file and url:
 
             if reg_no != 'nan' and reg_no != '':
                 try:
-                    # Direct HTTP Request (Fast & Cloud Friendly)
                     session = requests.Session()
                     headers = {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                     }
 
+                    # Pehle POST request try karein
                     response = session.post(url, data={'regNo': reg_no}, headers=headers, timeout=15)
                     soup = BeautifulSoup(response.content, 'html.parser')
+
+                    # Agar POST se table na mile, toh GET request try karein
+                    if not soup.find_all('table'):
+                        # URL ke aage query parameter jod kar GET karna
+                        separator = '&' if '?' in url else '?'
+                        full_url = f"{url}{separator}regNo={reg_no}"
+                        response = session.get(full_url, headers=headers, timeout=15)
+                        soup = BeautifulSoup(response.content, 'html.parser')
 
                     data_found = False
 
                     for table in soup.find_all('table'):
                         table_text = table.get_text()
-                        if 'Cur. CGPA' in table_text and 'SGPA' in table_text:
+                        # Keywords matching
+                        if 'SGPA' in table_text or 'CGPA' in table_text:
                             rows = table.find_all('tr')
                             for r in rows:
                                 cols = r.find_all(['td', 'th'])
                                 cols_text = [c.get_text(strip=True) for c in cols]
 
-                                if len(cols_text) > 2 and 'SGPA' in cols_text[0].upper():
-                                    vals = cols_text[1:]
+                                if len(cols_text) > 1:
+                                    # CGPA Check
+                                    if 'CGPA' in cols_text[0].upper() or 'CUR. CGPA' in cols_text[0].upper():
+                                        df.at[index, 'Cur. CGPA'] = cols_text[-1]
+                                        data_found = True
 
-                                    if len(vals) > 0:
-                                        try:
-                                            df.at[index, 'Cur. CGPA'] = float(vals[-1])
-                                        except:
+                                    # SGPA Check
+                                    if 'SGPA' in cols_text[0].upper():
+                                        vals = cols_text[1:]
+                                        # CGPA agar last value ho
+                                        if 'CGPA' in table_text:
                                             df.at[index, 'Cur. CGPA'] = vals[-1]
+                                            sgpa_vals = vals[:-1]
+                                        else:
+                                            sgpa_vals = vals
 
-                                    sgpa_vals = vals[:-1]
-                                    for i, val in enumerate(sgpa_vals):
-                                        col_name = f'Semester {i+1} SGPA'
-                                        if col_name in df.columns:
-                                            try:
-                                                df.at[index, col_name] = float(val)
-                                            except:
+                                        for i, val in enumerate(sgpa_vals):
+                                            col_name = f'Semester {i+1} SGPA'
+                                            if col_name in df.columns:
                                                 df.at[index, col_name] = val
-
-                                    data_found = True
-                                    break
+                                        
+                                        data_found = True
+                                        break
                             if data_found:
                                 break
 
                 except Exception as e:
-                    pass
+                    st.warning(f"Registration No {reg_no} ke liye data extract nahi ho paya: {e}")
 
             # Progress Bar Update
             progress_bar.progress((index + 1) / total_students, text=f"⏳ Extracting Data... ({index + 1}/{total_students})")
