@@ -5,13 +5,19 @@ import io
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
-
+import os
+import sys
 # ==========================================
 # ✨ PAGE CONFIG & CSS
 # ==========================================
 st.set_page_config(page_title="BEU Result Analyzer", page_icon="🎓")
 st.markdown("""
 <style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+.stAppDeployButton {display:none;}
+
 .stApp { background-color: #f8fafc; }
 h1 { color: #1e3a8a !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin-top: 0px !important; }
 .stTextInput label p, .stFileUploader label p { font-size: 20px !important; font-weight: 800 !important; color: #1e3a8a !important; }
@@ -24,14 +30,17 @@ div.stDownloadButton > button { background: linear-gradient(135deg, #ff007f, #ff
 """, unsafe_allow_html=True)
 
 # 🕵️ UNDETECTED CHROMEDRIVER
+# 🕵️ UNDETECTED CHROMEDRIVER (Invisible & Fast Engine)
+# 👻 COMPLETE GHOST MODE (Taskbar me bhi nahi dikhega)
+# 🚀 FAST & CLOUDFLARE BYPASSED ENGINE
+# 🕵️ UNDETECTED CHROMEDRIVER
 def get_driver():
     options = uc.ChromeOptions()
-    options.add_argument("--disable-backgrounding-occluded-windows")
-    options.add_argument("--disable-renderer-backgrounding")
-    options.add_argument("--disable-background-timer-throttling")
-    options.add_argument("--window-position=-2000,0")
-    
-    driver = uc.Chrome(options=options, version_main=150)
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+
+    driver = uc.Chrome(options=options)
     return driver
 
 # Helper function: Excel numbers float conversion
@@ -47,7 +56,8 @@ def safe_float(val):
 col1, col2 = st.columns([1, 5])
 with col1:
     try:
-        st.image("logo.jpg", width=80) 
+        logo_path = os.path.join(os.path.dirname(__file__), "logo.jpg")
+        st.image(logo_path, width=80) 
     except:
         st.write("🎓")
 with col2:
