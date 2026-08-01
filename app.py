@@ -34,13 +34,25 @@ div.stDownloadButton > button { background: linear-gradient(135deg, #ff007f, #ff
 # 👻 COMPLETE GHOST MODE (Taskbar me bhi nahi dikhega)
 # 🚀 FAST & CLOUDFLARE BYPASSED ENGINE
 # 🕵️ UNDETECTED CHROMEDRIVER
+# 🚀 STREAMLIT CLOUD COMPATIBLE DRIVER
 def get_driver():
     options = uc.ChromeOptions()
-    options.add_argument("--headless")
+    
+    # Cloud environments me chalane ke zaruri flags
+    options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+    
+    # Streamlit Cloud (Linux) ke Chromium binary ka path
+    options.binary_location = "/usr/bin/chromium"
 
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(
+        options=options,
+        headless=True,
+        use_subprocess=True
+    )
     return driver
 
 # Helper function: Excel numbers float conversion
