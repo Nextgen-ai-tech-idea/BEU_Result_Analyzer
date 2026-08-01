@@ -1,8 +1,6 @@
 streamlit
 pandas
-openpyxl
-requests
 beautifulsoup4
 selenium
-webdriver-manager
-selenium-stealth
+undetected-chromedriver
+openpyxl
