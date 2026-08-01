@@ -2,15 +2,9 @@ import streamlit as st
 import pandas as pd
 import time
 import io
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
-from selenium_stealth import stealth
 
 # ==========================================
 # ✨ PAGE CONFIG & CSS
@@ -18,50 +12,34 @@ from selenium_stealth import stealth
 st.set_page_config(page_title="BEU Result Analyzer", page_icon="🎓")
 st.markdown("""
 <style>
-.stApp { background-color: #f8fafc; } 
-h1 { color: #1e3a8a !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin-top: 0px !important; } 
-.stTextInput label p, .stFileUploader label p { font-size: 20px !important; font-weight: 800 !important; color: #1e3a8a !important; } 
-.stTextInput > div > div > input { border: 2px solid #1e3a8a !important; border-radius: 8px !important; } 
-.stFileUploader > div > div { border: 2px dashed #1e3a8a !important; border-radius: 8px !important; background-color: #ffffff !important; } 
-div.stButton > button:first-child { background-color: #2563eb !important; color: white !important; font-weight: 600 !important; border-radius: 8px !important; padding: 10px 24px !important; font-size: 18px !important; width: 100%; } 
-div.stDownloadButton > button { background: linear-gradient(135deg, #ff007f, #ff5e62) !important; color: white !important; font-weight: 800 !important; border-radius: 8px !important; padding: 12px 28px !important; font-size: 18px !important; } 
+.stApp { background-color: #f8fafc; }
+h1 { color: #1e3a8a !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin-top: 0px !important; }
+.stTextInput label p, .stFileUploader label p { font-size: 20px !important; font-weight: 800 !important; color: #1e3a8a !important; }
+.stTextInput > div > div > input { border: 2px solid #1e3a8a !important; border-radius: 8px !important; }
+.stFileUploader > div > div { border: 2px dashed #1e3a8a !important; border-radius: 8px !important; background-color: #ffffff !important; }
+div.stButton > button:first-child { background-color: #2563eb !important; color: white !important; font-weight: 600 !important; border-radius: 8px !important; border: none !important; padding: 10px 24px !important; font-size: 18px !important; width: 100%; transition: 0.3s; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3); }
+div.stDownloadButton > button { background: linear-gradient(135deg, #ff007f, #ff5e62) !important; color: white !important; font-weight: 800 !important; border-radius: 8px !important; border: none !important; padding: 12px 28px !important; font-size: 18px !important; transition: 0.3s; box-shadow: 0 4px 10px rgba(255, 94, 98, 0.4); }
 .stFileUploader small { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 🛡️ ANTI-BOT DRIVER INITIALIZATION
-# ==========================================
+# 🕵️ UNDETECTED CHROMEDRIVER
 def get_driver():
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920,1080")
+    options = uc.ChromeOptions()
+    options.add_argument("--disable-backgrounding-occluded-windows")
+    options.add_argument("--disable-renderer-backgrounding")
+    options.add_argument("--disable-background-timer-throttling")
+    options.add_argument("--window-position=-2000,0")
     
-    # Bot detection hatane ke flags
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_options.add_experimental_option('useAutomationExtension', False)
-
-    try:
-        service = Service("/usr/bin/chromedriver")
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-    except Exception as e:
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        
-    # Stealth Mode Apply Karna
-    stealth(driver,
-        languages=["en-US", "en"],
-        vendor="Google Inc.",
-        platform="Win32",
-        webgl_vendor="Intel Inc.",
-        renderer="Intel Iris OpenGL Engine",
-        fix_hairline=True,
-    )
+    driver = uc.Chrome(options=options, version_main=150)
     return driver
+
+# Helper function: Excel numbers float conversion
+def safe_float(val):
+    try:
+        return float(str(val).strip())
+    except (ValueError, TypeError):
+        return val
 
 # ==========================================
 # 🎨 WEB APP UI
@@ -81,6 +59,7 @@ uploaded_file = st.file_uploader("Upload Excel File (.xlsx)", type=["xlsx"])
 
 if st.button("Start") and uploaded_file and url:
     df = pd.read_excel(uploaded_file)
+    
     for col in df.columns:
         if 'CGPA' in col or 'SGPA' in col:
             df[col] = df[col].astype(object)
@@ -89,34 +68,39 @@ if st.button("Start") and uploaded_file and url:
         st.error("Excel file me 'Registration No.' column nahi mila!")
     else:
         total_students = len(df)
-        progress_bar = st.progress(0, text="🛡️ Opening Browser...")
+        progress_bar = st.progress(0, text="🛡️ Undetected Browser Starting...")
         
+        driver = get_driver()
         try:
-            driver = get_driver()
-            driver.get(url)
-            
-            st.markdown("### 📸 Live Browser View (Updating for 30 Seconds...)")
-            live_screen = st.empty() # Placeholder for live images
-            
-            # ✨ NAYA: 30 Second ka Wait aur Live Slideshow
-            for i in range(30):
-                progress_bar.progress((i + 1) / 30, text=f"⏳ Waiting for Cloudflare Verification... ({i + 1} / 30 sec)")
-                try:
-                    # Har second naya screenshot lagayega
-                    live_screen.image(driver.get_screenshot_as_png(), use_container_width=True)
-                except:
-                    pass
-                time.sleep(1) 
-            
-            st.success("✅ Wait Complete! Now attempting to extract data...")
-            
-            # Data Extract Process
             for index, row in df.iterrows():
                 reg_no = str(row['Registration No.']).strip()
                 if reg_no.endswith('.0'): reg_no = reg_no[:-2]
 
                 if reg_no != 'nan' and reg_no != '':
                     try:
+                        # 🔴 SAFETY CHECK: Agar hum Result Search Page par nahi hain, toh button click karke ya Direct URL se wapas aayein
+                        current_url = driver.current_url
+                        
+                        # Pehle Page Par Result Page Wala ← Back Click Karne Ki Koshish
+                        back_clicked = False
+                        try:
+                            page_buttons = driver.find_elements(By.TAG_NAME, "button")
+                            for pb in page_buttons:
+                                if "back" in pb.text.lower():
+                                    driver.execute_script("arguments[0].click();", pb)
+                                    back_clicked = True
+                                    break
+                        except:
+                            pass
+
+                        # Agar back button nahi mila ya galat URL par chale gaye, toh Target URL Reload karke Safety Lock lagao
+                        if not back_clicked or "google" in driver.current_url.lower() or url.split('?')[0] not in driver.current_url:
+                            driver.get(url)
+
+                        # 1️⃣ Cloudflare verification buffer wait
+                        time.sleep(6) 
+
+                        # 2️⃣ Search for Registration Input Box
                         inputs = driver.find_elements(By.TAG_NAME, "input")
                         input_box = None
                         for inp in inputs:
@@ -125,61 +109,65 @@ if st.button("Start") and uploaded_file and url:
                                 break
                         if not input_box and inputs: input_box = inputs[0]
 
-                        if input_box:
+                        # 3️⃣ Search for Show Result Button
+                        buttons = driver.find_elements(By.TAG_NAME, "button")
+                        btn = None
+                        for b in buttons:
+                            if any(word in b.text.lower() for word in ['show', 'result', 'submit', 'search']):
+                                btn = b
+                                break
+                        if not btn and buttons: btn = buttons[0]
+
+                        if input_box and btn:
                             input_box.clear()
-                            time.sleep(0.5) 
+                            time.sleep(0.4)
                             input_box.send_keys(reg_no)
-                            time.sleep(0.5)
+                            time.sleep(0.4)
 
-                            buttons = driver.find_elements(By.TAG_NAME, "button")
-                            btn = None
-                            for b in buttons:
-                                if any(word in b.text.lower() for word in ['show', 'result', 'submit', 'search']):
-                                    btn = b
+                            # Click Show Result
+                            driver.execute_script("arguments[0].click();", btn)
+                            
+                            # 4️⃣ Result Render Wait (Max 3 attempts = 6s)
+                            table_loaded = False
+                            for attempt in range(3):
+                                time.sleep(2)
+                                soup = BeautifulSoup(driver.page_source, 'html.parser')
+                                if 'SGPA' in soup.get_text() or 'CGPA' in soup.get_text():
+                                    table_loaded = True
                                     break
-                            if not btn and buttons: btn = buttons[0]
 
-                            if btn:
-                                driver.execute_script("arguments[0].click();", btn)
-                                time.sleep(5) # Result render hone ka wait
-                                
-                                # Taki hum dekh sake ki data aaya ya nahi
-                                live_screen.image(driver.get_screenshot_as_png(), use_container_width=True, caption=f"Result for {reg_no}")
-
-                            soup = BeautifulSoup(driver.page_source, 'html.parser')
-                            data_found = False
-
-                            for table in soup.find_all('table'):
-                                table_text = table.get_text()
-                                if 'SGPA' in table_text or 'CGPA' in table_text:
-                                    rows = table.find_all('tr')
-                                    for r in rows:
-                                        cols = r.find_all(['td', 'th'])
-                                        cols_text = [c.get_text(strip=True) for c in cols]
-                                        if len(cols_text) > 1 and 'SGPA' in cols_text[0].upper():
-                                            vals = cols_text[1:]
-                                            if 'CGPA' in table_text:
-                                                df.at[index, 'Cur. CGPA'] = vals[-1]
-                                                sgpa_vals = vals[:-1]
-                                            else:
-                                                sgpa_vals = vals
-                                            for i, val in enumerate(sgpa_vals):
-                                                col_name = f'Semester {i+1} SGPA'
-                                                if col_name in df.columns: df.at[index, col_name] = val
-                                            data_found = True
-                                            break
-                                    if data_found: break
+                            # 5️⃣ Extract Data
+                            if table_loaded:
+                                data_found = False
+                                for table in soup.find_all('table'):
+                                    table_text = table.get_text()
+                                    if 'SGPA' in table_text or 'CGPA' in table_text:
+                                        rows = table.find_all('tr')
+                                        for r in rows:
+                                            cols = r.find_all(['td', 'th'])
+                                            cols_text = [c.get_text(strip=True) for c in cols]
+                                            if len(cols_text) > 1 and 'SGPA' in cols_text[0].upper():
+                                                vals = cols_text[1:]
+                                                if 'CGPA' in table_text:
+                                                    df.at[index, 'Cur. CGPA'] = safe_float(vals[-1])
+                                                    sgpa_vals = vals[:-1]
+                                                else:
+                                                    sgpa_vals = vals
+                                                for i, val in enumerate(sgpa_vals):
+                                                    col_name = f'Semester {i+1} SGPA'
+                                                    if col_name in df.columns: 
+                                                        df.at[index, col_name] = safe_float(val)
+                                                data_found = True
+                                                break
+                                        if data_found: break
 
                     except Exception as e:
-                        st.error(f"Error on Reg No {reg_no}: {e}")
+                        driver.get(url)
 
-                progress_bar.progress((index + 1) / total_students, text=f"⏳ Extracting... ({index + 1}/{total_students})")
+                progress_bar.progress((index + 1) / total_students, text=f"⏳ Extracting Data... ({index + 1}/{total_students})")
 
-        except Exception as e:
-            st.error(f"❌ CRITICAL ERROR: {e}")
         finally:
-            if 'driver' in locals():
-                driver.quit()
+            driver.quit()
 
         st.markdown("### 📊 Final Result Data")
         styled_df = df.style.format(precision=2).set_properties(**{'background-color': '#eef2ff', 'color': '#1e3a8a', 'border-color': 'white', 'text-align': 'center'})
