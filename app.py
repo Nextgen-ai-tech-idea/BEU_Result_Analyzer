@@ -3,6 +3,10 @@ import pandas as pd
 import time
 import io
 import undetected_chromedriver as uc
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.os_manager import ChromeType
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 import os
@@ -29,30 +33,17 @@ div.stDownloadButton > button { background: linear-gradient(135deg, #ff007f, #ff
 </style>
 """, unsafe_allow_html=True)
 
-# 🕵️ UNDETECTED CHROMEDRIVER
-# 🕵️ UNDETECTED CHROMEDRIVER (Invisible & Fast Engine)
-# 👻 COMPLETE GHOST MODE (Taskbar me bhi nahi dikhega)
-# 🚀 FAST & CLOUDFLARE BYPASSED ENGINE
-# 🕵️ UNDETECTED CHROMEDRIVER
 # 🚀 STREAMLIT CLOUD COMPATIBLE DRIVER
 def get_driver():
-    options = uc.ChromeOptions()
-    
-    # Cloud environments me chalane ke zaruri flags
+    options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
-    
-    # Streamlit Cloud (Linux) ke Chromium binary ka path
-    options.binary_location = "/usr/bin/chromium"
 
-    driver = uc.Chrome(
-        options=options,
-        headless=True,
-        use_subprocess=True
-    )
+    service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
+    driver = webdriver.Chrome(service=service, options=options)
     return driver
 
 # Helper function: Excel numbers float conversion
